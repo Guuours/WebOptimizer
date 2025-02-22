@@ -92,11 +92,23 @@ namespace WebOptimizer.Taghelpers
         }
 
         /// <summary>
+        /// Adds current the PathBase to a Url
+        /// </summary>
+        protected string AddPathBase(string url)
+        {
+            var pathBase = ViewContext.HttpContext.Request.PathBase;
+            if (string.IsNullOrEmpty(pathBase))
+                return url;
+
+            return pathBase + (url.StartsWith("/") ? url : ("/" + url));
+        }
+
+        /// <summary>
         /// Generates a has of the files in the bundle.
         /// </summary>
         protected string GenerateHash(IAsset asset)
         {
-            string hash = asset.GenerateCacheKey(ViewContext.HttpContext);
+            string hash = asset.GenerateCacheKey(ViewContext.HttpContext, Options);
 
             return $"{asset.Route}?v={hash}";
         }
@@ -114,6 +126,17 @@ namespace WebOptimizer.Taghelpers
             }
 
             Cache.Set(cacheKey, value, cacheOptions);
+        }
+
+        /// <summary>
+        /// Adds the CdnUrl defined in Options to a Url
+        /// </summary>
+        /// <returns></returns>
+        protected string AddCdn(string url)
+        {
+            if (string.IsNullOrEmpty(Options.CdnUrl))
+                return url;
+            return Options.CdnUrl + (url.StartsWith("/") ? url : "/" + url);
         }
     }
 }

@@ -21,7 +21,7 @@ namespace WebOptimizer
 
             foreach (string key in config.Content.Keys)
             {
-                if (key.EndsWith(".min"))
+                if (key.EndsWith(".min") || key.EndsWith(".min.css"))
                 {
                     content[key] = config.Content[key];
                     continue;
@@ -108,8 +108,8 @@ namespace Microsoft.Extensions.DependencyInjection
             return pipeline.AddBundle(route, "text/css; charset=UTF-8", sourceFiles)
                            .EnforceFileExtensions(".css")
                            .AdjustRelativePaths()
-                           .Concatenate()
                            .FingerprintUrls()
+                           .Concatenate()
                            .AddResponseHeader("X-Content-Type-Options", "nosniff")
                            .MinifyCss(settings);
         }

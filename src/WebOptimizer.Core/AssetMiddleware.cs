@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
@@ -28,7 +29,7 @@ namespace WebOptimizer
             if (context.Request.PathBase.HasValue)
             {
                 string pathBase = context.Request.PathBase.Value;
-                if (path.StartsWith(pathBase))
+                if (context.Request.Path.StartsWithSegments(pathBase))
                 {
                     path = path.Substring(pathBase.Length);
                 }
@@ -87,12 +88,7 @@ namespace WebOptimizer
             {
                 if (options.EnableCaching == true)
                 {
-                    context.Response.Headers[HeaderNames.CacheControl] = $"max-age=31536000"; // 1 year
-
-                    if (context.Request.Query.ContainsKey("v"))
-                    {
-                        context.Response.Headers[HeaderNames.CacheControl] += $",immutable";
-                    }
+                    context.Response.Headers[HeaderNames.CacheControl] = "max-age=31536000,immutable"; // 1 year, immutable
                 }
 
                 context.Response.Headers[HeaderNames.ETag] = $"\"{cacheKey}\"";
@@ -106,7 +102,18 @@ namespace WebOptimizer
 
             if (cachedResponse?.Body?.Length > 0)
             {
+                SetCompressionMode(context, options);
                 await context.Response.Body.WriteAsync(cachedResponse.Body, 0, cachedResponse.Body.Length);
+            }
+        }
+
+        // Only called when we expect to serve the body.
+        private static void SetCompressionMode(HttpContext context, IWebOptimizerOptions options)
+        {
+            IHttpsCompressionFeature responseCompressionFeature = context.Features.Get<IHttpsCompressionFeature>();
+            if (responseCompressionFeature != null)
+            {
+                responseCompressionFeature.Mode = options.HttpsCompression;
             }
         }
     }

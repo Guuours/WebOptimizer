@@ -34,7 +34,10 @@ namespace WebOptimizer.Test
             var asset = new Asset(inputRoute, "text/css", new[] { "file.css" });
             var pipeline = new AssetPipeline();
             pipeline.AddBundle(asset);
-
+            if (!normalizedRoute.StartsWith("/"))
+            {
+                normalizedRoute = "/" + normalizedRoute;
+            }
             Assert.Equal(normalizedRoute, pipeline.Assets.First().Route);
         }
 
@@ -52,16 +55,16 @@ namespace WebOptimizer.Test
         }
 
         [Fact2]
-        public void AddTwoSameRoutes_Throws()
+        public void AddTwoSameRoutes_Ignore()
         {
             var env = new HostingEnvironment { EnvironmentName = "Development" };
-            var asset1 = new Asset("/route", "text/css", new[] { "file.css" });
-            var asset2 = new Asset("/route", "text/css", new[] { "file.css" });
+            var route = "/route";
+            var asset1 = new Asset(route, "text/css", new[] { "file.css" });
+            var asset2 = new Asset(route, "text/css", new[] { "file.css" });
             var pipeline = new AssetPipeline();
 
-            var ex = Assert.Throws<ArgumentException>(() => pipeline.AddBundle(new[] { asset1, asset2 }));
+            pipeline.AddBundle(new[] { asset1, asset2 });
 
-            Assert.Equal("route", ex.ParamName);
             Assert.Equal(1, pipeline.Assets.Count);
         }
 
@@ -131,7 +134,10 @@ namespace WebOptimizer.Test
         {
             var pipeline = new AssetPipeline();
             pipeline.AddFiles("text/css", pattern);
-
+            if (!path.StartsWith("/"))
+            {
+                path = "/" + path;
+            }
             Assert.True(pipeline.TryGetAssetFromRoute(path, out var a1));
             Assert.Equal($"{path}", a1.Route);
         }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Html;
@@ -45,28 +46,42 @@ namespace WebOptimizer.Taghelpers
                 return;
             }
 
-            string href = GetValue("href", output);
-            string pathBase = null;
-            if (CurrentViewContext.HttpContext.Request.PathBase.HasValue )
+            if (output.Attributes.ContainsName("inline"))
             {
-                pathBase = CurrentViewContext.HttpContext.Request.PathBase.Value;
+                return;
             }
 
-            if (pathBase != null && href.StartsWith(pathBase))
+            string href = GetValue("href", output, out bool encoded);
+            string pathBase = CurrentViewContext.HttpContext?.Request?.PathBase.Value;
+
+            if (!string.IsNullOrEmpty(pathBase) && href.StartsWith(pathBase))
             {
                 href = href.Substring(pathBase.Length);
             }                
 
-            if (Pipeline.TryGetAssetFromRoute(href, out IAsset asset) && !output.Attributes.ContainsName("inline"))
+            if (Pipeline.TryGetAssetFromRoute(href, out IAsset asset))
             {
                 if (Options.EnableTagHelperBundling == true)
                 {
-                    href = $"{pathBase}{GenerateHash(asset)}";
+                    href = AddCdn(AddPathBase(GenerateHash(asset)));
                     output.Attributes.SetAttribute("href", href);
                 }
                 else
                 {
                     WriteIndividualTags(output, asset);
+                }
+            }
+            else
+            {
+                if (!Uri.TryCreate(href, UriKind.Absolute, out Uri _))
+                {
+                    string unmodifiedHref = href;
+                    href = AddCdn(AddPathBase(href));
+                    if (href != unmodifiedHref)
+                    {
+                        object value = encoded ? new HtmlString(href) : href;
+                        output.Attributes.SetAttribute("href", value);
+                    }
                 }
             }
         }
@@ -101,13 +116,14 @@ namespace WebOptimizer.Taghelpers
 
                     fileToAdd = Path.ChangeExtension(file, "css");
                 }
-                string href = AddFileVersionToPath(fileToAdd, asset);
+                string href = AddCdn(AddPathBase(AddFileVersionToPath(fileToAdd, asset)));
                 output.PostElement.AppendHtml($"<link href=\"{href}\" {string.Join(" ", attrs)} />" + Environment.NewLine);
             }
         }
 
-        internal static string GetValue(string attrName, TagHelperOutput output)
+        internal static string GetValue(string attrName, TagHelperOutput output, out bool encoded)
         {
+            encoded = false;
             if (string.IsNullOrEmpty(attrName) || !output.Attributes.TryGetAttribute(attrName, out var attr))
             {
                 return null;
@@ -119,6 +135,7 @@ namespace WebOptimizer.Taghelpers
             }
             else if (attr.Value is IHtmlContent content)
             {
+                encoded = true;
                 if (content is HtmlString htmlString)
                 {
                     return htmlString.ToString();

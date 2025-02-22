@@ -182,7 +182,6 @@ services.AddWebOptimizer(pipeline =>
     pipeline.AddJavaScriptBundle("/js/scripts.js", "a.js", "b.js")
         .UseFileProvider(provider);
 });
-
 ```
 
 ## Tag Helpers
@@ -211,8 +210,30 @@ They will get a version string added as a URL parameter:
 
 This version string changes every time one or more of the source files are modified. 
 
+**NOTE:** TagHelpers will only work on files registered as assets on the pipeline (will not work for all files in your <sctipt> and <link> tags out of the blue). make sure to add all required files as assets (glob is supported to add wildcard paths).
+
+```csharp
+services.AddWebOptimizer(pipeline =>
+{
+    pipeline.AddFiles("text/javascript", "/dist/*");
+    pipeline.AddFiles("text/css", "/css/*");
+});
+``` 
+
 This technique is called *cache busting* and is a critical component to achieving high performance, since we cannot utilize browser caching of the CSS and JavaScript files without it. That is also why it can not be disabled when using WebOptimizer.
 
+#### HTTPS Compression Considerations
+When utilized with the [`services.AddResponseCompression`](https://docs.microsoft.com/en-us/aspnet/core/performance/response-compression?view=aspnetcore-6.0) middleware included in the [Feature](https://github.com/ligershark/WebOptimizer/pull/147), it's important to note that by default the *cache busted* assets may not be included as the *Response Header: content-type* is modified from the default **application/javascript** to **text/javascript**, which is not a supported default [ResponseCompressionDefaults.MimeTypes](https://github.com/aspnet/BasicMiddleware/blob/master/src/Microsoft.AspNetCore.ResponseCompression/ResponseCompressionDefaults.cs) before ASP.NET Core 7.0 and can be added in the *Startup.ConfigureServices* like so:
+```csharp
+services.AddResponseCompression( options => {
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+        new[] { "text/javascript"}
+    );
+});
+```
+*Note: `app.UseResponseCompression()` should be used prior to `app.UseWebOptimizer()`*
+
+*Note: If you're using [ASP.NET Core 7.0 or later](https://github.com/dotnet/aspnetcore/blob/v7.0.0-preview.4.22251.1/src/Middleware/ResponseCompression/src/ResponseCompressionDefaults.cs), you don't need to add this, as support for `text/javascript` is included by default.*
 ### Inlining content
 We can also use Web Optimizer to inline the content of the files directly into the Razor page. This is useful for creating high-performance websites that inlines the above-the-fold CSS and lazy loads the rest later.
 
@@ -229,7 +250,7 @@ There is a Tag Helper that understands what the `inline` attribute means and han
 WebOptimizer can also compile [Scss](http://sass-lang.com/) files into CSS. For that you need to install the `LigerShark.WebOptimizer.Sass` NuGet package and hooking it up is a breeze. Read more on the [WebOptimizer.Sass](https://github.com/ligershark/WebOptimizer.sass) website.
 
 ## Options
-You can control the options from the appsettings.json file.
+You can control the options from the appsettings.json file or in code 
 
 ```json
 {
@@ -243,6 +264,21 @@ You can control the options from the appsettings.json file.
     "allowEmptyBundle": false
   }
 }
+```
+
+```csharp
+services.AddWebOptimizer(pipeline =>
+    {
+        pipeline.AddCssBundle("/css/bundle.css", "css/*.css");
+        pipeline.AddJavaScriptBundle("/js/bundle.js", "js/plus.js", "js/minus.js");
+    },
+    option =>
+    {
+        option.EnableCaching = true;
+        option.EnableDiskCache = false;
+        option.EnableMemoryCache = true;
+        option.AllowEmptyBundle = true;
+    });
 ```
 
 **enableCaching** determines if the `cache-control` HTTP headers should be set and if conditional GET (304) requests should be supported. This could be helpful to disable while in development mode.
@@ -268,10 +304,6 @@ Default: `<ContentRootPath>/obj/WebOptimizerCache`
 **cdnUrl** is an absolute URL that, if present, is automatically adds a prefix to any script, stylesheet or media file on the page. A Tag Helper adds the prefix automatically when the Tag Helpers have been registered. See how to [register the Tag Helpers here](#tag-helpers).
 
 For example. if the cdnUrl is set to `"http://my-cdn.com"` then script and link tags will prepend the *cdnUrl* to the references. For instance, this script tag:
-
-**allowEmptyBundle** determines the behavior when there is no content in source file of a bundle, 404 exception will be thrown when the bundle is requested, set to true to get a bundle with empty content instead.
-
-Default: **false**
 
 ```html
 <script src="/js/file.js"></script>

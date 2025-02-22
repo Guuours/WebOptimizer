@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -41,7 +43,7 @@ namespace WebOptimizer.Taghelpers
                 return;
             }
 
-            string src = LinkTagHelper.GetValue("src", output);
+            string src = LinkTagHelper.GetValue("src", output, out bool encoded );
 
             if (string.IsNullOrEmpty(src))
                 return;
@@ -62,7 +64,7 @@ namespace WebOptimizer.Taghelpers
             {
                 if (Options.EnableTagHelperBundling == true)
                 {
-                    src = $"{pathBase}{GenerateHash(asset)}";
+                    src = AddCdn(AddPathBase(GenerateHash(asset)));
                     output.Attributes.SetAttribute("src", src);
                 }
                 else
@@ -70,7 +72,15 @@ namespace WebOptimizer.Taghelpers
                     WriteIndividualTags(output, asset);
                 }
             }
-
+            else
+            {
+                if (!Uri.TryCreate(src, UriKind.Absolute, out Uri _))
+                {
+                    src = AddCdn(AddPathBase(src));
+                    object value = encoded ? new HtmlString(src) : src;
+                    output.Attributes.SetAttribute("src", value);
+                }
+            }
         }
 
         private void WriteIndividualTags(TagHelperOutput output, IAsset asset)
@@ -96,7 +106,7 @@ namespace WebOptimizer.Taghelpers
 
             foreach (string file in sourceFiles)
             {
-                string src = AddFileVersionToPath(file, asset);
+                string src = AddCdn(AddPathBase(AddFileVersionToPath(file, asset)));
                 output.PostElement.AppendHtml($"<script src=\"{src}\" {string.Join(" ", attrs)}></script>" + Environment.NewLine);
             }
         }

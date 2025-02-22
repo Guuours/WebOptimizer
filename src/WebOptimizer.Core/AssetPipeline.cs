@@ -113,12 +113,18 @@ namespace WebOptimizer
 
             route = NormalizeRoute(route);
 
-            if (Assets.Any(a => a.Route.Equals(route, StringComparison.OrdinalIgnoreCase)))
-            {
-                throw new ArgumentException($"The route \"{route}\" was already specified", nameof(route));
-            }
-
             IAsset asset = new Asset(route, contentType, this, sourceFiles);
+            _assets.TryAdd(route, asset);
+
+            return asset;
+        }
+
+
+        public IAsset AddAsset(string route, string contentType)
+        {
+            route = NormalizeRoute(route);
+
+            IAsset asset = new Asset(route, contentType, this, new string[0]);
             _assets.TryAdd(route, asset);
 
             return asset;
@@ -151,7 +157,7 @@ namespace WebOptimizer
         public static string NormalizeRoute(string route)
         {
             string trimmedRoute = route.Trim();
-            string cleanRoute = trimmedRoute.StartsWith( '/') || trimmedRoute.StartsWith("~")
+            string cleanRoute = trimmedRoute.StartsWith('/') || trimmedRoute.StartsWith("~")
                 ? "/" + route.Trim().TrimStart('~', '/')
                 : trimmedRoute;
 
@@ -160,6 +166,11 @@ namespace WebOptimizer
             if (index > -1)
             {
                 cleanRoute = cleanRoute.Substring(0, index);
+            }
+            
+            if(!cleanRoute.StartsWith("/"))
+            {
+                cleanRoute = "/" + cleanRoute;
             }
 
             return cleanRoute;
